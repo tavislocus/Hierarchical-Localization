@@ -56,10 +56,20 @@ class DoG(BaseModel):
                 options["normalization"] = pycolmap.Normalization.L1_ROOT
             else:
                 options["normalization"] = pycolmap.Normalization.L2
-            self.sift = pycolmap.Sift(
-                options=pycolmap.SiftExtractionOptions(options),
-                device=getattr(pycolmap.Device, "cuda" if use_gpu else "cpu"),
-            )
+            try:
+                # Newer pycolmap requires FeatureExtractionOptions
+                feat_opts = pycolmap.FeatureExtractionOptions()
+                (setattr(feat_opts, "sift_options", options)
+                if hasattr(feat_opts, "sift_options")
+                else setattr(feat_opts, "sift", options))
+                sift_ctor_options = feat_opts
+            except Exception:
+                # Fallback for older pycolmap that accepted SiftExtractionOptions directly
+                sift_ctor_options = options
+
+            self.sift = pycolmap.Sift(options=sift_ctor_options, 
+                                      device=getattr(pycolmap.Device, "cuda" if use_gpu else "cpu"))
+
 
         keypoints, descriptors = self.sift.extract(image_np)
         scales = keypoints[:, 2]
