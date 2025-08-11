@@ -95,6 +95,14 @@ confs = {
             "resize_max": 1600,
         },
     },
+    "orb": {
+        "output": "feats-orb",
+        "model": {"name": "orb"},
+        "preprocessing": {
+            "grayscale": True,
+            "resize_max": 1600,
+        },
+    },
     "sosnet": {
         "output": "feats-sosnet",
         "model": {"name": "dog", "descriptor": "sosnet"},
@@ -312,7 +320,7 @@ if __name__ == "__main__":
     parser.add_argument("--image_dir", type=Path, required=True)
     parser.add_argument("--export_dir", type=Path, required=True)
     parser.add_argument(
-        "--conf", type=str, default="superpoint_aachen", choices=list(confs.keys())
+        "--conf", type=str, default="orb", choices=list(confs.keys())
     )
     parser.add_argument("--as_half", action="store_true")
     parser.add_argument("--image_list", type=Path)
