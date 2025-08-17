@@ -35,10 +35,10 @@ class ORB(BaseModel):
 
     def _make_orb(self):
         opts = self.conf["options"]
-        # OpenCV’s ORB expects 8-bit single-channel input
+
         self.orb = cv2.ORB_create(
             nfeatures=int(opts.get("nfeatures", 5000)),
-            scaleFactor=float(opts.get("scaleFactor", 1.2)),
+            scaleFactor=float(opts.get("scaleFactor", 1.2)), # What to set this too
             nlevels=int(opts.get("nlevels", 8)),
             edgeThreshold=int(opts.get("edgeThreshold", 31)),
             firstLevel=int(opts.get("firstLevel", 0)),
@@ -50,7 +50,8 @@ class ORB(BaseModel):
 
     def _forward(self, data):
         image = data["image"]
-        # Expect shape [1,1,H,W], range ~ [0,1]
+        
+        # shape [1,1,H,W], [0,1]
         image_np = image.cpu().numpy()[0, 0]
         assert image.shape[1] == 1, "ORB expects a single-channel image"
         assert image_np.min() >= -EPS and image_np.max() <= 1 + EPS
@@ -58,29 +59,36 @@ class ORB(BaseModel):
         if self.orb is None:
             self._make_orb()
 
-        # OpenCV ORB requires uint8 grayscale
+        # Greyscale
         img_u8 = np.clip(image_np * 255.0 + 0.5, 0, 255).astype(np.uint8)
 
         keypoints, descriptors = self.orb.detectAndCompute(img_u8, None)
-        # Convert keypoints to arrays
-        pts = np.array([kp.pt for kp in keypoints], dtype=np.float32)         
-        sizes = np.array([kp.size for kp in keypoints], dtype=np.float32)    
-        # Convert size to an approximate scale similar to SIFT scale usage:
-        # SIFT keypoints store radius (sigma) *some factor; for ORB we use size/2 as scale proxy.
-        scales = sizes / 2.0
-        angles = np.array([kp.angle for kp in keypoints], dtype=np.float32)    # degrees in [0,360) or -1 if undefined
+        # keypoints is a tuple of len num_features
+        # print(f'k: {type(keypoints[0])}')
+        # print(f'k: {keypoints[0]}')
+        # print(f'k: {keypoints[0].pt}')
+        # print(f'k: {keypoints[0].size}')
+        # print(f'k: {keypoints[0].angle}')
+        # print(f'k: {keypoints[0].response}')
+
+        # breakpoint()
+
+        pts = np.array([kp.pt for kp in keypoints], dtype=np.float32)
+        sizes = np.array([kp.size for kp in keypoints], dtype=np.float32)
+        scales = sizes / 2.0 # Makes it similar to other features - double check, and maybe just set initial scale?
+        angles = np.array([kp.angle for kp in keypoints], dtype=np.float32)    # degrees [0,360) or -1 undefined
         responses = np.array([kp.response for kp in keypoints], dtype=np.float32)
 
-        # Descriptors: (N, 32) uint8 binary ORB
+        # [N, 32] binary ORB
         if descriptors is None:
             descriptors = np.empty((0, 32), dtype=np.uint8)
 
-        device = image.device
-        keypoints = torch.from_numpy(pts).to(device)
-        scales = torch.from_numpy(scales).to(device)
-        oris = torch.from_numpy(angles).to(device)
-        scores = torch.from_numpy(responses).to(device)
-        descriptors = torch.from_numpy(descriptors).to(device)  # (N,32) uint8
+        # Keep on CPU
+        keypoints = torch.from_numpy(pts)
+        scales = torch.from_numpy(scales)
+        oris = torch.from_numpy(angles)
+        scores = torch.from_numpy(responses)
+        descriptors = torch.from_numpy(descriptors) # (N,32) uint8
 
         if self.conf["max_keypoints"] != -1 and len(keypoints) > self.conf["max_keypoints"]:
             k = int(self.conf["max_keypoints"])
@@ -91,10 +99,12 @@ class ORB(BaseModel):
             scores = vals
             descriptors = descriptors[idxs]
 
+        # print(f'DESC: {descriptors.dtype}')
+
         return {
-            "keypoints": keypoints[None],          # [1, N, 2] (x, y)
-            "scales": scales[None],                # [1, N]
-            "oris": oris[None],                    # [1, N] degrees
-            "scores": scores[None],                # [1, N]
-            "descriptors": descriptors.T[None],    # [1, 32, N] uint8
+            "keypoints": keypoints[None],       # [1, N, 2] (x, y)
+            "scales": scales[None],             # [1, N]
+            "oris": oris[None],                 # [1, N] 
+            "scores": scores[None],             # [1, N]
+            "descriptors": descriptors.T[None], # [1, 32, N]
         }

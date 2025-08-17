@@ -42,6 +42,29 @@ class DoG(BaseModel):
         self.sift = None  # lazily instantiated on the first image
         self.dummy_param = torch.nn.Parameter(torch.empty(0))
 
+    def _make_sift(self):
+        device = self.dummy_param.device
+        use_gpu = pycolmap.has_cuda and device.type == "cuda"
+        options = {**self.conf["options"]}
+        if self.conf["descriptor"] == "rootsift":
+            options["normalization"] = pycolmap.Normalization.L1_ROOT
+        else:
+            options["normalization"] = pycolmap.Normalization.L2
+        try:
+            # Newer pycolmap requires FeatureExtractionOptions
+            feat_opts = pycolmap.FeatureExtractionOptions()
+            (setattr(feat_opts, "sift_options", options)
+            if hasattr(feat_opts, "sift_options")
+            else setattr(feat_opts, "sift", options))
+            sift_ctor_options = feat_opts
+        except Exception:
+            # Fallback for older pycolmap that accepted SiftExtractionOptions directly
+            sift_ctor_options = options
+
+        self.sift = pycolmap.Sift(options=sift_ctor_options, 
+                                    device=getattr(pycolmap.Device, "cuda" if use_gpu else "cpu"))
+
+
     def _forward(self, data):
         image = data["image"]
         image_np = image.cpu().numpy()[0, 0]
@@ -49,27 +72,7 @@ class DoG(BaseModel):
         assert image_np.min() >= -EPS and image_np.max() <= 1 + EPS
 
         if self.sift is None:
-            device = self.dummy_param.device
-            use_gpu = pycolmap.has_cuda and device.type == "cuda"
-            options = {**self.conf["options"]}
-            if self.conf["descriptor"] == "rootsift":
-                options["normalization"] = pycolmap.Normalization.L1_ROOT
-            else:
-                options["normalization"] = pycolmap.Normalization.L2
-            try:
-                # Newer pycolmap requires FeatureExtractionOptions
-                feat_opts = pycolmap.FeatureExtractionOptions()
-                (setattr(feat_opts, "sift_options", options)
-                if hasattr(feat_opts, "sift_options")
-                else setattr(feat_opts, "sift", options))
-                sift_ctor_options = feat_opts
-            except Exception:
-                # Fallback for older pycolmap that accepted SiftExtractionOptions directly
-                sift_ctor_options = options
-
-            self.sift = pycolmap.Sift(options=sift_ctor_options, 
-                                      device=getattr(pycolmap.Device, "cuda" if use_gpu else "cpu"))
-
+            self._make_sift()
 
         keypoints, descriptors = self.sift.extract(image_np)
         scales = keypoints[:, 2]

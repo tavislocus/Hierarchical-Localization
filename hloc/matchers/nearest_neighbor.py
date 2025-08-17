@@ -56,7 +56,15 @@ class NearestNeighbor(BaseModel):
                 sim.transpose(1, 2), ratio_threshold, self.conf["distance_threshold"]
             )
             matches0 = mutual_check(matches0, matches1)
+
+        # # DEBUG
+        # print(f'matches0: {matches0.shape}, {matches0.dtype}')
+        # print(f'scores0: {scores0.shape}, {scores0.dtype}\n')
+
         return {
             "matches0": matches0,
             "matching_scores0": scores0,
         }
+
+
+

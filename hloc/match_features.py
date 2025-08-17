@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import h5py
 import torch
 from tqdm import tqdm
+import numpy as np
 
 from . import logger, matchers
 from .utils.base_model import dynamic_load
@@ -81,6 +82,13 @@ confs = {
             "do_mutual_check": True,
         },
     },
+    "orb": {
+        "output": "matches-orb",
+        "model": {
+            "name": "orb_match",
+            "do_mutual_check": True,
+        },
+    },
     "adalam": {
         "output": "matches-adalam",
         "model": {"name": "adalam"},
@@ -119,20 +127,50 @@ class FeaturePairsDataset(torch.utils.data.Dataset):
         self.feature_path_q = feature_path_q
         self.feature_path_r = feature_path_r
 
+    @staticmethod
+    def _to_tensor_preserve_descriptor_dtype(v):
+        arr = np.asarray(v)  # no copy
+        if np.issubdtype(arr.dtype, np.floating):
+            # normalize all float arrays to float32
+            return torch.from_numpy(arr.astype(np.float32, copy=False))
+        # Keep uint8 (e.g., ORB descriptors) and any other integral types as-is
+        return torch.from_numpy(arr)
+    
+    # def __getitem__(self, idx):
+    #     name0, name1 = self.pairs[idx]
+    #     data = {}
+    #     with h5py.File(self.feature_path_q, "r") as fd:
+    #         grp = fd[name0]
+    #         for k, v in grp.items():
+    #             data[k + "0"] = torch.from_numpy(v.__array__()).float()
+    #         # some matchers might expect an image but only use its size
+    #         data["image0"] = torch.empty((1,) + tuple(grp["image_size"])[::-1])
+    #     with h5py.File(self.feature_path_r, "r") as fd:
+    #         grp = fd[name1]
+    #         for k, v in grp.items():
+    #             data[k + "1"] = torch.from_numpy(v.__array__()).float()
+    #         data["image1"] = torch.empty((1,) + tuple(grp["image_size"])[::-1])
+    #     return data
+
     def __getitem__(self, idx):
         name0, name1 = self.pairs[idx]
         data = {}
+
         with h5py.File(self.feature_path_q, "r") as fd:
             grp = fd[name0]
             for k, v in grp.items():
-                data[k + "0"] = torch.from_numpy(v.__array__()).float()
+                data[k + "0"] = self._to_tensor_preserve_descriptor_dtype(v)
             # some matchers might expect an image but only use its size
-            data["image0"] = torch.empty((1,) + tuple(grp["image_size"])[::-1])
+            H, W = tuple(grp["image_size"])[::-1]
+            data["image0"] = torch.empty((1, H, W), dtype=torch.float32)
+
         with h5py.File(self.feature_path_r, "r") as fd:
             grp = fd[name1]
             for k, v in grp.items():
-                data[k + "1"] = torch.from_numpy(v.__array__()).float()
-            data["image1"] = torch.empty((1,) + tuple(grp["image_size"])[::-1])
+                data[k + "1"] = self._to_tensor_preserve_descriptor_dtype(v)
+            H, W = tuple(grp["image_size"])[::-1]
+            data["image1"] = torch.empty((1, H, W), dtype=torch.float32)
+
         return data
 
     def __len__(self):
@@ -262,7 +300,7 @@ if __name__ == "__main__":
     parser.add_argument("--features", type=str, default="feats-superpoint-n4096-r1024")
     parser.add_argument("--matches", type=Path)
     parser.add_argument(
-        "--conf", type=str, default="superglue", choices=list(confs.keys())
+        "--conf", type=str, default="NN-binary", choices=list(confs.keys())
     )
     args = parser.parse_args()
     main(confs[args.conf], args.pairs, args.features, args.export_dir)
