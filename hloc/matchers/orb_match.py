@@ -23,11 +23,6 @@ def tens_to_cv(x):
     return x  # shape (N, 32)
 
 
-# ORB
-
-# Basically copied from nearest_neighbour, just making compatible with ORB features
-# Could combine into it working for SIFT and ORB from one file
-
 class BinaryNearestNeighbor(BaseModel):
     default_conf = {
         "ratio_threshold": None,          
@@ -35,8 +30,8 @@ class BinaryNearestNeighbor(BaseModel):
         "do_mutual_check": True,
     }
 
-    required_inputs = ['descriptors0', 'keypoints0', 'oris0', 'scales0', 'scores0',
-                       'descriptors1', 'keypoints1', 'oris1', 'scales1', 'scores1']
+    required_inputs = ['descriptors0', 'scores0',
+                       'descriptors1', 'scores1']
 
     def _init(self, conf):
         lut = torch.arange(256, dtype=torch.uint8)
@@ -55,7 +50,7 @@ class BinaryNearestNeighbor(BaseModel):
 
         D0, N0 = d0.shape
         _, N1 = d1.shape
-        if N0 == 0 or N1 == 0: # TODO - make compatible
+        if N0 == 0 or N1 == 0:
             # [B, N0] empty matches/scores
             device = d0.device
             return {
@@ -78,13 +73,9 @@ class BinaryNearestNeighbor(BaseModel):
             matches0[q] = t
             matching_scores0[q] = 1.0 - dist / Dbits   # similarity between 0-1
 
-        # Bit of a bodge
+        # Make sure this is robust
         matches0 = matches0.unsqueeze(0)              # [1, N0]
         matching_scores0 = matching_scores0.unsqueeze(0)
-
-        # DEBUG
-        # print(f'matches0: {matches0.shape}, {matches0.dtype}')
-        # print(f'scores0: {matching_scores0.shape}, {matching_scores0.dtype}\n')
 
         return {"matches0": matches0, 
                 "matching_scores0": matching_scores0}
