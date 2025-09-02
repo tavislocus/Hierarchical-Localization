@@ -25,8 +25,8 @@ def tens_to_cv(x):
 
 class BinaryNearestNeighbor(BaseModel):
     default_conf = {
-        "ratio_threshold": None,          
-        "distance_threshold_bits": None,  
+        "ratio_threshold": None,
+        "distance_threshold_bits": None,
         "do_mutual_check": True,
     }
 
@@ -44,7 +44,7 @@ class BinaryNearestNeighbor(BaseModel):
     def _forward(self, data):
         d0 = data["descriptors0"]
         d1 = data["descriptors1"]
-        
+
         d0 = tens_to_cv(d0)
         d1 = tens_to_cv(d1)
 
@@ -77,5 +77,5 @@ class BinaryNearestNeighbor(BaseModel):
         matches0 = matches0.unsqueeze(0)              # [1, N0]
         matching_scores0 = matching_scores0.unsqueeze(0)
 
-        return {"matches0": matches0, 
+        return {"matches0": matches0,
                 "matching_scores0": matching_scores0}

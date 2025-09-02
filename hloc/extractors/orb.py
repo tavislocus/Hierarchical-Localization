@@ -20,7 +20,7 @@ class ORB(BaseModel):
             "patchSize": 31,
             "fastThreshold": 20,
         },
-        "descriptor": "orb",     
+        "descriptor": "orb",
         "max_keypoints": -1,
     }
     required_inputs = ["image"]
@@ -30,7 +30,7 @@ class ORB(BaseModel):
     def _init(self, conf):
         if conf["descriptor"] != "orb":
             raise ValueError(f'Unknown descriptor: {conf["descriptor"]}')
-        self.orb = None 
+        self.orb = None
         self.dummy_param = torch.nn.Parameter(torch.empty(0))
 
     def _make_orb(self):
@@ -50,7 +50,7 @@ class ORB(BaseModel):
 
     def _forward(self, data):
         image = data["image"]
-        
+
         # shape [1,1,H,W], [0,1]
         image_np = image.cpu().numpy()[0, 0]
         assert image.shape[1] == 1, "ORB expects a single-channel image"
@@ -104,7 +104,7 @@ class ORB(BaseModel):
         return {
             "keypoints": keypoints[None],       # [1, N, 2] (x, y)
             "scales": scales[None],             # [1, N]
-            "oris": oris[None],                 # [1, N] 
+            "oris": oris[None],                 # [1, N]
             "scores": scores[None],             # [1, N]
             "descriptors": descriptors.T[None], # [1, 32, N]
         }

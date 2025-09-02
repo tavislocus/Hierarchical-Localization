@@ -61,7 +61,7 @@ class DoG(BaseModel):
             # Fallback for older pycolmap that accepted SiftExtractionOptions directly
             sift_ctor_options = options
 
-        self.sift = pycolmap.Sift(options=sift_ctor_options, 
+        self.sift = pycolmap.Sift(options=sift_ctor_options,
                                     device=getattr(pycolmap.Device, "cuda" if use_gpu else "cpu"))
 
 

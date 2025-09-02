@@ -135,7 +135,7 @@ class FeaturePairsDataset(torch.utils.data.Dataset):
             return torch.from_numpy(arr.astype(np.float32, copy=False))
         # Keep uint8 (e.g., ORB descriptors) and any other integral types as-is
         return torch.from_numpy(arr)
-    
+
     # def __getitem__(self, idx):
     #     name0, name1 = self.pairs[idx]
     #     data = {}
