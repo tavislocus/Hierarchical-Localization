@@ -79,5 +79,3 @@ class BinaryNearestNeighbor(BaseModel):
 
         return {"matches0": matches0, 
                 "matching_scores0": matching_scores0}
-
-
